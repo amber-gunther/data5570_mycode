@@ -18,10 +18,13 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = "RENDER" not in os.environ
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com"]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+if not DEBUG:
+    # Render health checks may use an internal hostname during wake-up.
+    ALLOWED_HOSTS.append("*")
 
 CSRF_TRUSTED_ORIGINS = []
 if RENDER_EXTERNAL_HOSTNAME:
@@ -79,7 +82,6 @@ if os.environ.get("DATABASE_URL"):
     DATABASES = {
         "default": dj_database_url.config(
             conn_max_age=600,
-            ssl_require=True,
         )
     }
 else:
