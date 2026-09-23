@@ -18,10 +18,27 @@ python -m venv myvenv
 pip install -r requirements.txt
 cd backend
 python manage.py migrate
-python manage.py runserver
+python manage.py seed_demo
+python manage.py runserver 0.0.0.0:8000
 ```
 
 If `myvenv` already exists, activate it and install from `requirements.txt` if needed.
+
+Visit http://127.0.0.1:8000/ for the home page and http://127.0.0.1:8000/admin/ for Django admin.
+
+## API
+
+Django REST Framework endpoints (Part 3):
+
+- http://127.0.0.1:8000/api/pantry/
+- http://127.0.0.1:8000/api/recipes/
+- http://127.0.0.1:8000/api/lifespans/
+- http://127.0.0.1:8000/api/users/
+- http://127.0.0.1:8000/api/health/
+
+On Render, use the same paths on https://freshtrack-4k21.onrender.com/ (for example `/api/pantry/`).
+
+`python manage.py seed_demo` creates the demo admin/test users plus a sample Milk pantry item and Scrambled eggs recipe.
 
 ## Deploy on Render
 
