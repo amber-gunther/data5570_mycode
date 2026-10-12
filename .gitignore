@@ -15,4 +15,3 @@ staticfiles/
 node_modules/
 .expo/
 dist/
-frontend/

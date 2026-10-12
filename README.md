@@ -1,6 +1,6 @@
 # FreshTrack
 
-Django backend for kitchen inventory, expiry tracking, and saved recipes.
+Kitchen inventory, expiry tracking, and saved recipes. This repo has a Django REST API (`backend/`) and an Expo app (`freshtrack/`).
 
 ## Layout
 
@@ -11,7 +11,7 @@ Django backend for kitchen inventory, expiry tracking, and saved recipes.
 - `render.yaml` - Render Blueprint (web service + Postgres)
 - `FRESHTRACK.md` - product notes
 
-## Local setup
+## Local setup (Django)
 
 ```powershell
 python -m venv myvenv
@@ -23,13 +23,13 @@ python manage.py seed_demo
 python manage.py runserver 0.0.0.0:8000
 ```
 
-If `myvenv` already exists, activate it and install from `requirements.txt` if needed.
+If PowerShell blocks `Activate.ps1`, run `.\myvenv\Scripts\activate.bat` instead.
 
 Visit http://127.0.0.1:8000/ for the home page and http://127.0.0.1:8000/admin/ for Django admin.
 
 ## API
 
-Django REST Framework endpoints (Part 3):
+Django REST Framework endpoints:
 
 - http://127.0.0.1:8000/api/pantry/
 - http://127.0.0.1:8000/api/recipes/
@@ -43,14 +43,22 @@ On Render, use the same paths on https://freshtrack-4k21.onrender.com/ (for exam
 
 ## Frontend (Expo)
 
-Requires Node.js LTS. Then:
+Requires Node.js LTS. From the repo root:
 
 ```powershell
-cd C:\Users\Amber\python-test\freshtrack
+cd freshtrack
+npm install
 npm run web
 ```
 
-That opens the app in your browser. Press Ctrl+C in the terminal to stop it.
+That starts Metro and opens the app in the browser (http://localhost:8081). Press Ctrl+C in the terminal to stop it.
+
+The app has two screens:
+
+- **FreshTrack pantry** (`app/index.tsx`) — list pantry items and add a new one
+- **Item details** (`app/details.tsx`) — quantity, storage, status, expiry, and remove
+
+`PantryList` is a parent that renders a `PantryRow` for each item. Form fields use `useState`. The first load uses `useEffect` to fetch `/api/pantry/` from the live backend, then `dispatch` into a Redux store. If that request fails (for example CORS in the browser), it loads demo items instead. Adding and removing items update Redux on the device; they do not write back to Django yet.
 
 ## Deploy on Render
 
@@ -59,6 +67,8 @@ That opens the app in your browser. Press Ctrl+C in the terminal to stop it.
 3. Apply the Blueprint. Render will create the web service and Postgres database.
 
 Local development still uses SQLite. Render uses Postgres via `DATABASE_URL`.
+
+The Expo app is local (`npm run web`). It is not part of the Render Blueprint.
 
 ## Accounts
 
