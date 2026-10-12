@@ -5,6 +5,7 @@ Django backend for kitchen inventory, expiry tracking, and saved recipes.
 ## Layout
 
 - `backend/` - Django project (`config`) and app (`api`)
+- `freshtrack/` - Expo app (Create Expo Stack, next to Django, not inside it)
 - `myvenv/` - local Python virtual environment (not committed)
 - `requirements.txt` - pinned Python packages
 - `render.yaml` - Render Blueprint (web service + Postgres)
@@ -39,6 +40,17 @@ Django REST Framework endpoints (Part 3):
 On Render, use the same paths on https://freshtrack-4k21.onrender.com/ (for example `/api/pantry/`).
 
 `python manage.py seed_demo` creates the demo admin/test users plus a sample Milk pantry item and Scrambled eggs recipe.
+
+## Frontend (Expo)
+
+Requires Node.js LTS. Then:
+
+```powershell
+cd C:\Users\Amber\python-test\freshtrack
+npm run web
+```
+
+That opens the app in your browser. Press Ctrl+C in the terminal to stop it.
 
 ## Deploy on Render
 
