@@ -10,6 +10,7 @@ Kitchen inventory, expiry tracking, and saved recipes. This repo has a Django RE
 - `requirements.txt` - pinned Python packages
 - `render.yaml` - Render Blueprint (web service + Postgres)
 - `FRESHTRACK.md` - product notes
+- `IDEAS.md` - later features; do not build these until the app talks to Django properly
 
 ## Local setup (Django)
 
