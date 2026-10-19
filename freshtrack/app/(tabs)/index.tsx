@@ -1,74 +1,21 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { PantryList } from '@/components/PantryList';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addItem, demoPantry, PantryItem, setItems } from '@/store/pantrySlice';
-
-const API_URL = 'https://freshtrack-4k21.onrender.com/api';
-
-function toPantryItems(payload: unknown): PantryItem[] {
-  if (!Array.isArray(payload)) {
-    return demoPantry;
-  }
-
-  return payload.map((row) => {
-    const item = row as Record<string, unknown>;
-    return {
-      id: Number(item.id),
-      name: String(item.name ?? 'Unnamed'),
-      quantity: String(item.quantity ?? ''),
-      unit: String(item.unit ?? ''),
-      storage_zone: String(item.storage_zone ?? 'pantry'),
-      expiry_date: item.expiry_date ? String(item.expiry_date) : null,
-      status: String(item.status ?? 'active'),
-    };
-  });
-}
+import { addItem, PantryItem } from '@/store/pantrySlice';
 
 export default function Home() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const items = useAppSelector((state) => state.pantry.items);
-  const loadStatus = useAppSelector((state) => state.pantry.status);
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('count');
-
-  useEffect(() => {
-    if (loadStatus !== 'idle') {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadPantry() {
-      try {
-        const response = await fetch(`${API_URL}/pantry/`);
-        if (!response.ok) {
-          throw new Error('Could not load pantry');
-        }
-        const payload = await response.json();
-        if (!cancelled) {
-          dispatch(setItems(toPantryItems(payload)));
-        }
-      } catch {
-        if (!cancelled) {
-          dispatch(setItems(demoPantry));
-        }
-      }
-    }
-
-    loadPantry();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [dispatch, loadStatus]);
 
   function handleAdd() {
     const trimmed = name.trim();
@@ -94,8 +41,7 @@ export default function Home() {
   }
 
   return (
-    <View style={styles.screen}>
-      <Stack.Screen options={{ title: 'FreshTrack pantry' }} />
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Container>
         <Text style={styles.heading}>What's in the kitchen</Text>
         <PantryList items={items} onSelect={openDetails} />
@@ -124,7 +70,7 @@ export default function Home() {
         </View>
         <Button title="Add to pantry" onPress={handleAdd} />
       </Container>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -132,6 +78,9 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: 'white',
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
   },
   heading: {
     fontSize: 22,

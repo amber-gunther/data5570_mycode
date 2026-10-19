@@ -12,7 +12,11 @@ export default function Layout() {
           headerTintColor: '#ffffff',
           headerTitleStyle: { fontWeight: '700' },
         }}
-      />
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="details" />
+        <Stack.Screen name="recipe/[id]" />
+      </Stack>
     </Provider>
   );
 }

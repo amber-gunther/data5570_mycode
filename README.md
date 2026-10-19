@@ -53,12 +53,14 @@ npm run web
 
 That starts Metro and opens the app in the browser (http://localhost:8081). Press Ctrl+C in the terminal to stop it.
 
-The app has two screens:
+The app has bottom tabs plus detail screens:
 
-- **FreshTrack pantry** (`app/index.tsx`) — list pantry items and add a new one
-- **Item details** (`app/details.tsx`) — quantity, storage, status, expiry, and remove
+- **Pantry** — list pantry items and add a new one
+- **Recipes** — saved recipes; open one to see Have/Need against the pantry
+- **Item details** — quantity, storage, status, expiry, and remove
+- **Recipe details** — notes and each ingredient compared to what you have
 
-`PantryList` is a parent that renders a `PantryRow` for each item. Form fields use `useState`. The first load uses `useEffect` to fetch `/api/pantry/` from the live backend, then `dispatch` into a Redux store. If that request fails (for example CORS in the browser), it loads demo items instead. Adding and removing items update Redux on the device; they do not write back to Django yet.
+`PantryList` / `PantryRow` and `RecipeList` / `RecipeRow` are parent/child lists. Form fields use `useState`. The first load uses `useEffect` to fetch `/api/pantry/` and `/api/recipes/` from the live backend, then `dispatch` into Redux. If a request fails (for example CORS in the browser), it loads demo data instead. Adding and removing pantry items update Redux on the device; they do not write back to Django yet. Recipes are read-only in the app.
 
 ## Deploy on Render
 
