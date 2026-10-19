@@ -14,8 +14,8 @@ export const demoPantry: PantryItem[] = [
   {
     id: 1,
     name: 'Milk',
-    quantity: '1.00',
-    unit: 'gallon',
+    quantity: '4.00',
+    unit: 'cup',
     storage_zone: 'fridge',
     expiry_date: '2026-10-15',
     status: 'active',
@@ -75,8 +75,35 @@ const pantrySlice = createSlice({
     removeItem(state, action: PayloadAction<number>) {
       state.items = state.items.filter((item) => item.id !== action.payload);
     },
+    adjustQuantity(state, action: PayloadAction<{ id: number; delta: number }>) {
+      const item = state.items.find((row) => row.id === action.payload.id);
+      if (!item) {
+        return;
+      }
+      const current = Number(item.quantity);
+      if (!Number.isFinite(current)) {
+        return;
+      }
+      const next = Math.max(0, Math.round((current + action.payload.delta) * 100) / 100);
+      item.quantity = String(next);
+    },
+    useIngredients(state, action: PayloadAction<{ id: number; amount: number }[]>) {
+      for (const deduction of action.payload) {
+        const item = state.items.find((row) => row.id === deduction.id);
+        if (!item) {
+          continue;
+        }
+        const current = Number(item.quantity);
+        if (!Number.isFinite(current)) {
+          continue;
+        }
+        const next = Math.max(0, Math.round((current - deduction.amount) * 100) / 100);
+        item.quantity = String(next);
+      }
+    },
   },
 });
 
-export const { setItems, addItem, removeItem } = pantrySlice.actions;
+export const { setItems, addItem, removeItem, adjustQuantity, useIngredients } =
+  pantrySlice.actions;
 export default pantrySlice.reducer;

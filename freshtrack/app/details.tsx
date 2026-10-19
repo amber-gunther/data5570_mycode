@@ -4,7 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { removeItem } from '@/store/pantrySlice';
+import { adjustQuantity, removeItem } from '@/store/pantrySlice';
 
 export default function Details() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -14,6 +14,8 @@ export default function Details() {
   const item = useAppSelector((state) =>
     state.pantry.items.find((row) => row.id === itemId),
   );
+  const quantity = item ? Number(item.quantity) : 0;
+  const canDecrease = Number.isFinite(quantity) && quantity > 0;
 
   function handleRemove() {
     if (!item) {
@@ -30,8 +32,25 @@ export default function Details() {
         {item ? (
           <>
             <Text style={styles.label}>Quantity</Text>
-            <Text style={styles.value}>
-              {item.quantity} {item.unit}
+            <View style={styles.qtyRow}>
+              <Button
+                title="−"
+                disabled={!canDecrease}
+                onPress={() => dispatch(adjustQuantity({ id: item.id, delta: -1 }))}
+                style={styles.step}
+              />
+              <Text style={styles.value}>
+                {item.quantity} {item.unit}
+              </Text>
+              <Button
+                title="+"
+                onPress={() => dispatch(adjustQuantity({ id: item.id, delta: 1 }))}
+                style={styles.step}
+              />
+            </View>
+            <Text style={styles.hint}>
+              Use − / + for spills, snacks, or anything that isn't a saved recipe. Quantity
+              cannot go below 0.
             </Text>
             <Text style={styles.label}>Storage</Text>
             <Text style={styles.value}>{item.storage_zone}</Text>
@@ -60,10 +79,30 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textTransform: 'uppercase',
   },
+  qtyRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  step: {
+    marginHorizontal: 0,
+    minWidth: 56,
+    padding: 12,
+  },
   value: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  hint: {
+    color: '#6b7280',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+    marginTop: 4,
   },
   missing: {
     fontSize: 16,

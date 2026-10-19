@@ -1,17 +1,31 @@
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 
+import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
-import { pantryHasIngredient } from '@/lib/matchPantry';
-import { useAppSelector } from '@/store/hooks';
+import { planCook } from '@/lib/matchPantry';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useIngredients } from '@/store/pantrySlice';
 
 export default function RecipeDetails() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const dispatch = useAppDispatch();
   const recipeId = Number(id);
   const pantryItems = useAppSelector((state) => state.pantry.items);
   const recipe = useAppSelector((state) =>
     state.recipes.items.find((row) => row.id === recipeId),
   );
+  const plan = recipe ? planCook(recipe, pantryItems) : null;
+  const [message, setMessage] = useState('');
+
+  function handleMadeThis() {
+    if (!plan?.ok) {
+      return;
+    }
+    dispatch(useIngredients(plan.deductions));
+    setMessage('Pantry updated for this recipe.');
+  }
 
   return (
     <View style={styles.screen}>
@@ -30,21 +44,43 @@ export default function RecipeDetails() {
               ) : null}
               <Text style={styles.label}>Ingredients vs pantry</Text>
               {recipe.ingredients.map((line) => {
-                const have = pantryHasIngredient(line.name, pantryItems);
+                const check = plan?.lines.find((row) => row.ingredientId === line.id);
+                const kind = check?.kind ?? 'missing';
+                const badge =
+                  kind === 'ok' ? 'Have' : kind === 'unit' ? 'Unit' : kind === 'short' ? 'Short' : 'Need';
+                const badgeStyle =
+                  kind === 'ok'
+                    ? styles.have
+                    : kind === 'unit' || kind === 'short'
+                      ? styles.warn
+                      : styles.need;
                 return (
                   <View key={line.id} style={styles.ingredient}>
                     <View style={styles.copy}>
                       <Text style={styles.ingredientName}>{line.name}</Text>
                       <Text style={styles.meta}>
                         {line.quantity} {line.unit}
+                        {check && check.kind !== 'ok' ? ` · ${check.message}` : ''}
                       </Text>
                     </View>
-                    <Text style={have ? styles.have : styles.need}>
-                      {have ? 'Have' : 'Need'}
-                    </Text>
+                    <Text style={badgeStyle}>{badge}</Text>
                   </View>
                 );
               })}
+              <View style={styles.actions}>
+                <Button
+                  title="I made this"
+                  disabled={!plan?.ok}
+                  onPress={handleMadeThis}
+                />
+              </View>
+              {plan && !plan.ok ? (
+                <Text style={styles.blocked}>
+                  This only logs when every ingredient is in the pantry, uses the same unit,
+                  and you have enough. Nothing is skipped.
+                </Text>
+              ) : null}
+              {message ? <Text style={styles.success}>{message}</Text> : null}
             </>
           ) : (
             <Text style={styles.missing}>That recipe is not in the store.</Text>
@@ -62,6 +98,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
+    paddingBottom: 24,
   },
   label: {
     color: '#6b7280',
@@ -112,6 +149,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  warn: {
+    color: '#b45309',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  actions: {
+    marginTop: 20,
+  },
+  blocked: {
+    color: '#6b7280',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 12,
+  },
+  success: {
+    color: '#2f6b4f',
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 12,
   },
   missing: {
     fontSize: 16,
