@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { PantryList } from '@/components/PantryList';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addItem, PantryItem } from '@/store/pantrySlice';
+import { addItem, createPantryItem, PantryItem } from '@/store/pantrySlice';
 
 export default function Home() {
   const dispatch = useAppDispatch();
@@ -23,14 +23,15 @@ export default function Home() {
       return;
     }
 
-    dispatch(
-      addItem({
-        name: trimmed,
-        quantity: quantity.trim() || '1',
-        unit: unit.trim() || 'count',
-        storage_zone: 'pantry',
-      }),
-    );
+    const payload = {
+      name: trimmed,
+      quantity: quantity.trim() || '1',
+      unit: unit.trim() || 'count',
+      storage_zone: 'pantry',
+    };
+    dispatch(createPantryItem(payload)).unwrap().catch(() => {
+      dispatch(addItem(payload));
+    });
     setName('');
     setQuantity('');
     setUnit('count');

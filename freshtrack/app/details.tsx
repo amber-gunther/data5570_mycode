@@ -4,7 +4,12 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { adjustQuantity, removeItem } from '@/store/pantrySlice';
+import {
+  adjustQuantity,
+  deletePantryItem,
+  patchPantryQuantity,
+  removeItem,
+} from '@/store/pantrySlice';
 
 export default function Details() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -17,12 +22,43 @@ export default function Details() {
   const quantity = item ? Number(item.quantity) : 0;
   const canDecrease = Number.isFinite(quantity) && quantity > 0;
 
+  function nextQuantity(delta: number) {
+    if (!item) {
+      return null;
+    }
+    const current = Number(item.quantity);
+    if (!Number.isFinite(current)) {
+      return null;
+    }
+    return String(Math.max(0, Math.round((current + delta) * 100) / 100));
+  }
+
+  function handleStep(delta: number) {
+    if (!item) {
+      return;
+    }
+    const quantityValue = nextQuantity(delta);
+    if (quantityValue === null) {
+      return;
+    }
+    dispatch(patchPantryQuantity({ id: item.id, quantity: quantityValue }))
+      .unwrap()
+      .catch(() => {
+        dispatch(adjustQuantity({ id: item.id, delta }));
+      });
+  }
+
   function handleRemove() {
     if (!item) {
       return;
     }
-    dispatch(removeItem(item.id));
-    router.back();
+    dispatch(deletePantryItem(item.id))
+      .unwrap()
+      .then(() => router.back())
+      .catch(() => {
+        dispatch(removeItem(item.id));
+        router.back();
+      });
   }
 
   return (
@@ -36,7 +72,7 @@ export default function Details() {
               <Button
                 title="−"
                 disabled={!canDecrease}
-                onPress={() => dispatch(adjustQuantity({ id: item.id, delta: -1 }))}
+                onPress={() => handleStep(-1)}
                 style={styles.step}
               />
               <Text style={styles.value}>
@@ -44,7 +80,7 @@ export default function Details() {
               </Text>
               <Button
                 title="+"
-                onPress={() => dispatch(adjustQuantity({ id: item.id, delta: 1 }))}
+                onPress={() => handleStep(1)}
                 style={styles.step}
               />
             </View>

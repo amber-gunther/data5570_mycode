@@ -1,4 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+import { API_URL } from '@/constants/api';
 
 export type PantryItem = {
   id: number;
@@ -40,6 +42,26 @@ export const demoPantry: PantryItem[] = [
   },
 ];
 
+export function parsePantryItem(row: unknown): PantryItem {
+  const item = row as Record<string, unknown>;
+  return {
+    id: Number(item.id),
+    name: String(item.name ?? 'Unnamed'),
+    quantity: String(item.quantity ?? ''),
+    unit: String(item.unit ?? ''),
+    storage_zone: String(item.storage_zone ?? 'pantry'),
+    expiry_date: item.expiry_date ? String(item.expiry_date) : null,
+    status: String(item.status ?? 'active'),
+  };
+}
+
+export function parsePantryItems(payload: unknown): PantryItem[] {
+  if (!Array.isArray(payload)) {
+    return demoPantry;
+  }
+  return payload.map(parsePantryItem);
+}
+
 type PantryState = {
   items: PantryItem[];
   status: 'idle' | 'ready';
@@ -51,6 +73,90 @@ const initialState: PantryState = {
   status: 'idle',
   nextLocalId: 100,
 };
+
+export const fetchPantry = createAsyncThunk('pantry/fetch', async () => {
+  const response = await fetch(`${API_URL}/pantry/`);
+  if (!response.ok) {
+    throw new Error('Could not load pantry');
+  }
+  return parsePantryItems(await response.json());
+});
+
+export const createPantryItem = createAsyncThunk(
+  'pantry/create',
+  async (payload: { name: string; quantity: string; unit: string; storage_zone: string }) => {
+    const response = await fetch(`${API_URL}/pantry/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: payload.name,
+        quantity: payload.quantity,
+        unit: payload.unit,
+        storage_zone: payload.storage_zone,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error('Could not create pantry item');
+    }
+    return parsePantryItem(await response.json());
+  },
+);
+
+export const patchPantryQuantity = createAsyncThunk(
+  'pantry/patchQuantity',
+  async ({ id, quantity }: { id: number; quantity: string }) => {
+    const response = await fetch(`${API_URL}/pantry/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity }),
+    });
+    if (!response.ok) {
+      throw new Error('Could not update quantity');
+    }
+    return parsePantryItem(await response.json());
+  },
+);
+
+export const deletePantryItem = createAsyncThunk('pantry/delete', async (id: number) => {
+  const response = await fetch(`${API_URL}/pantry/${id}/`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Could not delete pantry item');
+  }
+  return id;
+});
+
+export const cookRecipeOnServer = createAsyncThunk(
+  'pantry/cook',
+  async (deductions: { id: number; amount: number }[], { getState }) => {
+    const state = getState() as { pantry: PantryState };
+    const totals: Record<number, number> = {};
+    for (const deduction of deductions) {
+      totals[deduction.id] = (totals[deduction.id] ?? 0) + deduction.amount;
+    }
+
+    const updated: PantryItem[] = [];
+    for (const [id, amount] of Object.entries(totals)) {
+      const pantryId = Number(id);
+      const current = state.pantry.items.find((row) => row.id === pantryId);
+      if (!current) {
+        continue;
+      }
+      const have = Number(current.quantity);
+      const next = Math.max(0, Math.round((have - amount) * 100) / 100);
+      const response = await fetch(`${API_URL}/pantry/${pantryId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: String(next) }),
+      });
+      if (!response.ok) {
+        throw new Error('Could not update pantry after cooking');
+      }
+      updated.push(parsePantryItem(await response.json()));
+    }
+
+    return updated;
+  },
+);
 
 const pantrySlice = createSlice({
   name: 'pantry',
@@ -101,6 +207,40 @@ const pantrySlice = createSlice({
         item.quantity = String(next);
       }
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchPantry.fulfilled, (state, action) => {
+        state.items = action.payload;
+        state.status = 'ready';
+      })
+      .addCase(fetchPantry.rejected, (state) => {
+        if (state.status === 'idle') {
+          state.items = demoPantry;
+          state.status = 'ready';
+        }
+      })
+      .addCase(createPantryItem.fulfilled, (state, action) => {
+        state.items.unshift(action.payload);
+        state.status = 'ready';
+      })
+      .addCase(patchPantryQuantity.fulfilled, (state, action) => {
+        const index = state.items.findIndex((row) => row.id === action.payload.id);
+        if (index >= 0) {
+          state.items[index] = action.payload;
+        }
+      })
+      .addCase(deletePantryItem.fulfilled, (state, action) => {
+        state.items = state.items.filter((row) => row.id !== action.payload);
+      })
+      .addCase(cookRecipeOnServer.fulfilled, (state, action) => {
+        for (const updated of action.payload) {
+          const index = state.items.findIndex((row) => row.id === updated.id);
+          if (index >= 0) {
+            state.items[index] = updated;
+          }
+        }
+      });
   },
 });
 

@@ -6,10 +6,9 @@ Park features here so we do not keep building Expo-only extras before the app is
 
 ## Do next (foundation)
 
-- Allow the Expo web app to call the live API (CORS on Django).
-- Load pantry and recipes from the logged-in user's database, not only Redux / demo rows.
-- Save add, remove, +/−, and **I made this** back to the API so a refresh does not lose the kitchen log.
+- Deploy the Expo app with EAS Hosting and submit that URL.
 - Decide when demo data belongs in `seed_demo` only, vs staying hardcoded in the app.
+- Per-user login in Expo (POST currently assigns the first Django user).
 
 ## Parked ideas
 

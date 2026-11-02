@@ -19,6 +19,17 @@ class PantrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Pantry
         fields = "__all__"
+        extra_kwargs = {
+            "user": {"required": False},
+        }
+
+    def create(self, validated_data):
+        if "user" not in validated_data:
+            owner = User.objects.order_by("id").first()
+            if owner is None:
+                raise serializers.ValidationError({"user": "No user exists to own pantry items."})
+            validated_data["user"] = owner
+        return super().create(validated_data)
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):

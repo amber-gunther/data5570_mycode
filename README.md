@@ -61,7 +61,7 @@ The app has bottom tabs plus detail screens:
 - **Item details** — quantity, storage, status, expiry, and remove
 - **Recipe details** — notes and each ingredient compared to what you have
 
-`PantryList` / `PantryRow` and `RecipeList` / `RecipeRow` are parent/child lists. Form fields use `useState`. The first load uses `useEffect` to fetch `/api/pantry/` and `/api/recipes/` from the live backend, then `dispatch` into Redux. If a request fails (for example CORS in the browser), it loads demo data instead. Adding and removing pantry items update Redux on the device; they do not write back to Django yet. Recipes are read-only in the app.
+`PantryList` / `PantryRow` and `RecipeList` / `RecipeRow` are parent/child lists. Form fields use `useState`. Redux thunks GET `/api/pantry/` and `/api/recipes/`, POST a new pantry item, and PATCH quantities for −/+, **I made this**, and DELETE when you remove an item. If the live API is asleep or blocked, the app falls back to demo data and local Redux so the screens still work. Recipes are read-only in the app.
 
 ## Deploy on Render
 

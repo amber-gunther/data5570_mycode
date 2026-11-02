@@ -1,4 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+import { API_URL } from '@/constants/api';
 
 export type RecipeIngredient = {
   id: number;
@@ -39,30 +41,6 @@ export const demoRecipes: Recipe[] = [
   },
 ];
 
-type RecipesState = {
-  items: Recipe[];
-  status: 'idle' | 'ready';
-};
-
-const initialState: RecipesState = {
-  items: [],
-  status: 'idle',
-};
-
-const recipesSlice = createSlice({
-  name: 'recipes',
-  initialState,
-  reducers: {
-    setRecipes(state, action: PayloadAction<Recipe[]>) {
-      state.items = action.payload;
-      state.status = 'ready';
-    },
-  },
-});
-
-export const { setRecipes } = recipesSlice.actions;
-export default recipesSlice.reducer;
-
 export function parseRecipes(payload: unknown): Recipe[] {
   if (!Array.isArray(payload)) {
     return demoRecipes;
@@ -88,3 +66,48 @@ export function parseRecipes(payload: unknown): Recipe[] {
     };
   });
 }
+
+type RecipesState = {
+  items: Recipe[];
+  status: 'idle' | 'ready';
+};
+
+const initialState: RecipesState = {
+  items: [],
+  status: 'idle',
+};
+
+export const fetchRecipes = createAsyncThunk('recipes/fetch', async () => {
+  const response = await fetch(`${API_URL}/recipes/`);
+  if (!response.ok) {
+    throw new Error('Could not load recipes');
+  }
+  return parseRecipes(await response.json());
+});
+
+const recipesSlice = createSlice({
+  name: 'recipes',
+  initialState,
+  reducers: {
+    setRecipes(state, action: PayloadAction<Recipe[]>) {
+      state.items = action.payload;
+      state.status = 'ready';
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchRecipes.fulfilled, (state, action) => {
+        state.items = action.payload;
+        state.status = 'ready';
+      })
+      .addCase(fetchRecipes.rejected, (state) => {
+        if (state.status === 'idle') {
+          state.items = demoRecipes;
+          state.status = 'ready';
+        }
+      });
+  },
+});
+
+export const { setRecipes } = recipesSlice.actions;
+export default recipesSlice.reducer;

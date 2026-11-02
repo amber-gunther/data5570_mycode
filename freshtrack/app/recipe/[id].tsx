@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { planCook } from '@/lib/matchPantry';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { useIngredients } from '@/store/pantrySlice';
+import { cookRecipeOnServer, useIngredients } from '@/store/pantrySlice';
 
 export default function RecipeDetails() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -23,8 +23,13 @@ export default function RecipeDetails() {
     if (!plan?.ok) {
       return;
     }
-    dispatch(useIngredients(plan.deductions));
-    setMessage('Pantry updated for this recipe.');
+    dispatch(cookRecipeOnServer(plan.deductions))
+      .unwrap()
+      .then(() => setMessage('Pantry updated for this recipe.'))
+      .catch(() => {
+        dispatch(useIngredients(plan.deductions));
+        setMessage('Pantry updated on this device (server save failed).');
+      });
   }
 
   return (
