@@ -71,7 +71,16 @@ The app has bottom tabs plus detail screens:
 
 Local development still uses SQLite. Render uses Postgres via `DATABASE_URL`.
 
-The Expo app is local (`npm run web`). It is not part of the Render Blueprint.
+The Expo app can run locally (`npm run web`) or on Expo Hosting:
+
+https://freshtrack--0hsm2k6nc2.expo.app
+
+That preview talks to the Render API. After code changes, export and deploy again from `freshtrack`:
+
+```powershell
+npx.cmd expo export --platform web
+npx.cmd eas-cli@latest deploy
+```
 
 ## Accounts
 
