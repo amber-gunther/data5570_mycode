@@ -23,9 +23,11 @@ Park features here so we do not keep building Expo-only extras before the app is
 - **Login in Expo** — so pantry/recipes are per account, not a shared demo API.
 - **Barcode / receipt intake** — product notes in `FRESHTRACK.md`; not for this homework slice.
 - **Restock as separate lots (use oldest first)** — Buying a second jug of milk while the first is still open should not smash both into one quantity. Each package needs its own row (or lot) with its own expiry. Cooking and − should deduct from the oldest/soonest-expiring lot first (FIFO). How we show that in the UI is still TBD (two Milk rows vs one name with a lot list).
+- **Zero inventory** — When quantity hits 0 (cook, −, or use-up), the pantry row should not sit around as “still have it.” Mark it `used_up`, hide it from the active list, or remove it. The Django `status` field already has `used_up`; the app does not do anything at zero today.
 
 ## Inbox
 
 Add new thoughts here (date + one line). Do not implement until the foundation list is done.
 
 - 2026-10-19 — Restock / FIFO lots (second gallon of milk, different expiry, use old first). See parked list.
+- 2026-11-09 — When a product reaches zero inventory, update pantry (used_up / hide / remove). See parked list.
