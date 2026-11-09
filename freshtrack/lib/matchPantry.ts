@@ -1,4 +1,5 @@
 import type { PantryItem } from '@/store/pantrySlice';
+import { isOnHand } from '@/store/pantrySlice';
 import type { Recipe, RecipeIngredient } from '@/store/recipesSlice';
 
 function normalize(value: string) {
@@ -44,20 +45,26 @@ export type CookPlan = {
   lines: LineCheck[];
 };
 
-function findPantryMatch(ingredient: RecipeIngredient, items: PantryItem[]) {
-  const unitMatches = items.filter(
-    (item) => namesMatch(ingredient.name, item.name) && unitsMatch(ingredient.unit, item.unit),
-  );
-  if (unitMatches.length > 0) {
-    return { kind: 'unit' as const, item: unitMatches[0] };
+function expirySortValue(item: PantryItem) {
+  if (!item.expiry_date) {
+    return Number.MAX_SAFE_INTEGER;
   }
+  const stamp = Date.parse(item.expiry_date);
+  return Number.isFinite(stamp) ? stamp : Number.MAX_SAFE_INTEGER;
+}
 
-  const nameMatches = items.filter((item) => namesMatch(ingredient.name, item.name));
-  if (nameMatches.length > 0) {
-    return { kind: 'name' as const, item: nameMatches[0] };
-  }
-
-  return { kind: 'none' as const, item: null };
+function fifoLots(ingredient: RecipeIngredient, items: PantryItem[]) {
+  return items
+    .filter(
+      (item) =>
+        isOnHand(item) &&
+        namesMatch(ingredient.name, item.name) &&
+        unitsMatch(ingredient.unit, item.unit),
+    )
+    .sort((a, b) => {
+      const byDate = expirySortValue(a) - expirySortValue(b);
+      return byDate !== 0 ? byDate : a.id - b.id;
+    });
 }
 
 export function planCook(recipe: Recipe, items: PantryItem[]): CookPlan {
@@ -76,52 +83,68 @@ export function planCook(recipe: Recipe, items: PantryItem[]): CookPlan {
       continue;
     }
 
-    const match = findPantryMatch(ingredient, items);
-    if (match.kind === 'none' || !match.item) {
-      lines.push({
-        ingredientId: ingredient.id,
-        kind: 'missing',
-        message: 'Not in pantry',
-      });
+    const lots = fifoLots(ingredient, items);
+    if (lots.length === 0) {
+      const nameOnly = items.filter(
+        (item) => isOnHand(item) && namesMatch(ingredient.name, item.name),
+      );
+      if (nameOnly.length > 0) {
+        lines.push({
+          ingredientId: ingredient.id,
+          kind: 'unit',
+          message: `Pantry has ${nameOnly[0].unit}, recipe uses ${ingredient.unit}`,
+        });
+      } else {
+        lines.push({
+          ingredientId: ingredient.id,
+          kind: 'missing',
+          message: 'Not in pantry',
+        });
+      }
       continue;
     }
 
-    if (match.kind === 'name') {
-      lines.push({
-        ingredientId: ingredient.id,
-        kind: 'unit',
-        message: `Pantry has ${match.item.unit}, recipe uses ${ingredient.unit}`,
-      });
-      continue;
+    let remainingNeed = needed;
+    const lineDeductions: { id: number; amount: number }[] = [];
+    let available = 0;
+
+    for (const lot of lots) {
+      const have = parseQty(lot.quantity);
+      if (!Number.isFinite(have)) {
+        continue;
+      }
+      const leftover = have - (reserved[lot.id] ?? 0);
+      if (leftover <= 0) {
+        continue;
+      }
+      available += leftover;
+      const take = Math.min(leftover, remainingNeed);
+      if (take > 0) {
+        lineDeductions.push({ id: lot.id, amount: take });
+        remainingNeed = Math.round((remainingNeed - take) * 100) / 100;
+      }
+      if (remainingNeed <= 1e-9) {
+        break;
+      }
     }
 
-    const have = parseQty(match.item.quantity);
-    if (!Number.isFinite(have)) {
-      lines.push({
-        ingredientId: ingredient.id,
-        kind: 'invalid',
-        message: 'Pantry quantity is not a number',
-      });
-      continue;
-    }
-
-    const alreadyReserved = reserved[match.item.id] ?? 0;
-    const remaining = have - alreadyReserved;
-    if (remaining + 1e-9 < needed) {
+    if (remainingNeed > 1e-9) {
       lines.push({
         ingredientId: ingredient.id,
         kind: 'short',
-        message: `Only ${formatQty(remaining)} ${match.item.unit} left`,
+        message: `Only ${formatQty(available)} ${ingredient.unit} left across lots`,
       });
       continue;
     }
 
-    reserved[match.item.id] = alreadyReserved + needed;
-    deductions.push({ id: match.item.id, amount: needed });
+    for (const deduction of lineDeductions) {
+      reserved[deduction.id] = (reserved[deduction.id] ?? 0) + deduction.amount;
+      deductions.push(deduction);
+    }
     lines.push({
       ingredientId: ingredient.id,
       kind: 'ok',
-      message: 'Have',
+      message: lots.length > 1 ? 'Have (use oldest first)' : 'Have',
     });
   }
 

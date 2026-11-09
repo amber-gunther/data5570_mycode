@@ -1,7 +1,8 @@
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from rest_framework import viewsets
 
-from .models import IngredientLifespan, Pantry, Recipe, User
+from .models import IngredientLifespan, Pantry, PantryStatus, Recipe, User
 from .serializers import (
     IngredientLifespanSerializer,
     PantrySerializer,
@@ -56,6 +57,12 @@ class IngredientLifespanViewSet(viewsets.ModelViewSet):
 class PantryViewSet(viewsets.ModelViewSet):
     queryset = Pantry.objects.all()
     serializer_class = PantrySerializer
+
+    def get_queryset(self):
+        return Pantry.objects.exclude(
+            Q(status__in=[PantryStatus.USED_UP, PantryStatus.THROWN_OUT])
+            | Q(quantity__lte=0)
+        )
 
 
 class RecipeViewSet(viewsets.ModelViewSet):

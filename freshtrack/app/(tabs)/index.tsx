@@ -6,16 +6,17 @@ import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { PantryList } from '@/components/PantryList';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addItem, createPantryItem, PantryItem } from '@/store/pantrySlice';
+import { addItem, createPantryItem, isOnHand, PantryItem } from '@/store/pantrySlice';
 
 export default function Home() {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const items = useAppSelector((state) => state.pantry.items);
+  const items = useAppSelector((state) => state.pantry.items.filter(isOnHand));
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('count');
+  const [expiry, setExpiry] = useState('');
 
   function handleAdd() {
     const trimmed = name.trim();
@@ -28,6 +29,7 @@ export default function Home() {
       quantity: quantity.trim() || '1',
       unit: unit.trim() || 'count',
       storage_zone: 'pantry',
+      expiry_date: expiry.trim() || null,
     };
     dispatch(createPantryItem(payload)).unwrap().catch(() => {
       dispatch(addItem(payload));
@@ -35,6 +37,7 @@ export default function Home() {
     setName('');
     setQuantity('');
     setUnit('count');
+    setExpiry('');
   }
 
   function openDetails(item: PantryItem) {
@@ -47,7 +50,11 @@ export default function Home() {
         <Text style={styles.heading}>What's in the kitchen</Text>
         <PantryList items={items} onSelect={openDetails} />
 
-        <Text style={styles.subheading}>Add an item</Text>
+        <Text style={styles.subheading}>Add a lot</Text>
+        <Text style={styles.hint}>
+          Each add is its own package. Two milk jugs with different expiries stay as two rows;
+          cooking uses the oldest first.
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Name (e.g. yogurt)"
@@ -69,6 +76,12 @@ export default function Home() {
             onChangeText={setUnit}
           />
         </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Expiry YYYY-MM-DD (optional)"
+          value={expiry}
+          onChangeText={setExpiry}
+        />
         <Button title="Add to pantry" onPress={handleAdd} />
       </Container>
     </ScrollView>
@@ -92,6 +105,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  hint: {
+    color: '#4b5563',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   input: {
     borderColor: '#d1d5db',

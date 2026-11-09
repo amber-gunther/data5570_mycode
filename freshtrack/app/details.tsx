@@ -43,8 +43,16 @@ export default function Details() {
     }
     dispatch(patchPantryQuantity({ id: item.id, quantity: quantityValue }))
       .unwrap()
+      .then(() => {
+        if (Number(quantityValue) <= 0) {
+          router.back();
+        }
+      })
       .catch(() => {
         dispatch(adjustQuantity({ id: item.id, delta }));
+        if (Number(quantityValue) <= 0) {
+          router.back();
+        }
       });
   }
 

@@ -24,6 +24,8 @@ python manage.py seed_demo
 python manage.py runserver 0.0.0.0:8000
 ```
 
+Copy `.env.example` to `.env` in the repo root and set `SECRET_KEY`. Render already injects `SECRET_KEY` and `DATABASE_URL`. Do not commit `.env`.
+
 If PowerShell blocks `Activate.ps1`, run `.\myvenv\Scripts\activate.bat` instead.
 
 Visit http://127.0.0.1:8000/ for the home page and http://127.0.0.1:8000/admin/ for Django admin.
@@ -48,6 +50,7 @@ Requires Node.js LTS. From the repo root:
 
 ```powershell
 cd freshtrack
+copy .env.example .env
 npm install
 npm run web
 ```
@@ -61,7 +64,7 @@ The app has bottom tabs plus detail screens:
 - **Item details** — quantity, storage, status, expiry, and remove
 - **Recipe details** — notes and each ingredient compared to what you have
 
-`PantryList` / `PantryRow` and `RecipeList` / `RecipeRow` are parent/child lists. Form fields use `useState`. Redux thunks GET `/api/pantry/` and `/api/recipes/`, POST a new pantry item, and PATCH quantities for −/+, **I made this**, and DELETE when you remove an item. If the live API is asleep or blocked, the app falls back to demo data and local Redux so the screens still work. Recipes are read-only in the app.
+`PantryList` / `PantryRow` and `RecipeList` / `RecipeRow` are parent/child lists. Form fields use `useState`. Redux thunks GET `/api/pantry/` and `/api/recipes/`, POST a new pantry lot, PATCH quantities, and DELETE a row. Quantity updates use PATCH (partial), which is the right REST verb; POST creates a resource. When a lot hits 0 it is marked `used_up` and dropped from the active list. Adding the same name twice keeps two lots; **I made this** deducts from the soonest expiry first. If the live API is asleep, the app falls back to demo data. Recipes are read-only in the app. Copy `freshtrack/.env.example` to `freshtrack/.env` for `EXPO_PUBLIC_API_URL`.
 
 ## Deploy on Render
 

@@ -55,11 +55,19 @@ export function parsePantryItem(row: unknown): PantryItem {
   };
 }
 
+export function isOnHand(item: PantryItem) {
+  if (item.status === 'used_up' || item.status === 'thrown_out') {
+    return false;
+  }
+  const quantity = Number(item.quantity);
+  return Number.isFinite(quantity) ? quantity > 0 : true;
+}
+
 export function parsePantryItems(payload: unknown): PantryItem[] {
   if (!Array.isArray(payload)) {
     return demoPantry;
   }
-  return payload.map(parsePantryItem);
+  return payload.map(parsePantryItem).filter(isOnHand);
 }
 
 type PantryState = {
@@ -67,6 +75,10 @@ type PantryState = {
   status: 'idle' | 'ready';
   nextLocalId: number;
 };
+
+function dropEmptyLots(state: PantryState) {
+  state.items = state.items.filter(isOnHand);
+}
 
 const initialState: PantryState = {
   items: [],
@@ -84,7 +96,13 @@ export const fetchPantry = createAsyncThunk('pantry/fetch', async () => {
 
 export const createPantryItem = createAsyncThunk(
   'pantry/create',
-  async (payload: { name: string; quantity: string; unit: string; storage_zone: string }) => {
+  async (payload: {
+    name: string;
+    quantity: string;
+    unit: string;
+    storage_zone: string;
+    expiry_date?: string | null;
+  }) => {
     const response = await fetch(`${API_URL}/pantry/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -93,6 +111,7 @@ export const createPantryItem = createAsyncThunk(
         quantity: payload.quantity,
         unit: payload.unit,
         storage_zone: payload.storage_zone,
+        expiry_date: payload.expiry_date || null,
       }),
     });
     if (!response.ok) {
@@ -168,12 +187,12 @@ const pantrySlice = createSlice({
     },
     addItem(
       state,
-      action: PayloadAction<Omit<PantryItem, 'id' | 'status' | 'expiry_date'>>,
+      action: PayloadAction<Omit<PantryItem, 'id' | 'status'>>,
     ) {
       state.items.unshift({
         id: state.nextLocalId,
         status: 'active',
-        expiry_date: null,
+        expiry_date: action.payload.expiry_date ?? null,
         ...action.payload,
       });
       state.nextLocalId += 1;
@@ -192,6 +211,10 @@ const pantrySlice = createSlice({
       }
       const next = Math.max(0, Math.round((current + action.payload.delta) * 100) / 100);
       item.quantity = String(next);
+      if (next <= 0) {
+        item.status = 'used_up';
+      }
+      dropEmptyLots(state);
     },
     useIngredients(state, action: PayloadAction<{ id: number; amount: number }[]>) {
       for (const deduction of action.payload) {
@@ -205,13 +228,17 @@ const pantrySlice = createSlice({
         }
         const next = Math.max(0, Math.round((current - deduction.amount) * 100) / 100);
         item.quantity = String(next);
+        if (next <= 0) {
+          item.status = 'used_up';
+        }
       }
+      dropEmptyLots(state);
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchPantry.fulfilled, (state, action) => {
-        state.items = action.payload;
+        state.items = action.payload.filter(isOnHand);
         state.status = 'ready';
       })
       .addCase(fetchPantry.rejected, (state) => {
@@ -223,12 +250,14 @@ const pantrySlice = createSlice({
       .addCase(createPantryItem.fulfilled, (state, action) => {
         state.items.unshift(action.payload);
         state.status = 'ready';
+        dropEmptyLots(state);
       })
       .addCase(patchPantryQuantity.fulfilled, (state, action) => {
         const index = state.items.findIndex((row) => row.id === action.payload.id);
         if (index >= 0) {
           state.items[index] = action.payload;
         }
+        dropEmptyLots(state);
       })
       .addCase(deletePantryItem.fulfilled, (state, action) => {
         state.items = state.items.filter((row) => row.id !== action.payload);
@@ -240,6 +269,7 @@ const pantrySlice = createSlice({
             state.items[index] = updated;
           }
         }
+        dropEmptyLots(state);
       });
   },
 });

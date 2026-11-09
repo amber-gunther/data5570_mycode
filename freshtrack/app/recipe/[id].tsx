@@ -6,13 +6,13 @@ import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { planCook } from '@/lib/matchPantry';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { cookRecipeOnServer, useIngredients } from '@/store/pantrySlice';
+import { cookRecipeOnServer, isOnHand, useIngredients } from '@/store/pantrySlice';
 
 export default function RecipeDetails() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
   const recipeId = Number(id);
-  const pantryItems = useAppSelector((state) => state.pantry.items);
+  const pantryItems = useAppSelector((state) => state.pantry.items.filter(isOnHand));
   const recipe = useAppSelector((state) =>
     state.recipes.items.find((row) => row.id === recipeId),
   );
@@ -79,12 +79,17 @@ export default function RecipeDetails() {
                   onPress={handleMadeThis}
                 />
               </View>
-              {plan && !plan.ok ? (
+              {plan?.ok ? (
+                <Text style={styles.blocked}>
+                  If you have more than one lot of the same food, this uses the soonest expiry
+                  first.
+                </Text>
+              ) : (
                 <Text style={styles.blocked}>
                   This only logs when every ingredient is in the pantry, uses the same unit,
                   and you have enough. Nothing is skipped.
                 </Text>
-              ) : null}
+              )}
               {message ? <Text style={styles.success}>{message}</Text> : null}
             </>
           ) : (

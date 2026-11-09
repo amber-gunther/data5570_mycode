@@ -14,6 +14,7 @@ export function PantryRow({ item, onPress }: PantryRowProps) {
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.meta}>
           {item.quantity} {item.unit} · {item.storage_zone}
+          {item.expiry_date ? ` · use by ${item.expiry_date}` : ''}
         </Text>
       </View>
       <Text style={styles.chevron}>›</Text>

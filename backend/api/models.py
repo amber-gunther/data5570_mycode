@@ -111,6 +111,13 @@ class Pantry(models.Model):
         verbose_name_plural = "pantry items"
         ordering = ["name"]
 
+    def save(self, *args, **kwargs):
+        if self.quantity is not None and self.quantity <= 0:
+            self.status = PantryStatus.USED_UP
+        elif self.status == PantryStatus.USED_UP and self.quantity > 0:
+            self.status = PantryStatus.ACTIVE
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} ({self.quantity} {self.unit})"
 

@@ -8,15 +8,21 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY",
-    "django-insecure-jf-5@up=fqlx55h7wnj%!&ai%j59q%(91p_in@q05g=2h6p)n7",
-)
+load_dotenv(BASE_DIR.parent / ".env")
+load_dotenv(BASE_DIR / ".env")
 
 DEBUG = "RENDER" not in os.environ
+
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "django-insecure-local-dev-only-set-SECRET_KEY-in-dotenv"
+    else:
+        raise ImproperlyConfigured("SECRET_KEY must be set in the environment.")
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com"]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")

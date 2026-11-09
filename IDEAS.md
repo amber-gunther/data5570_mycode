@@ -1,8 +1,8 @@
 # FreshTrack ideas (later)
 
-Park features here so we do not keep building Expo-only extras before the app is wired to Django + Postgres.
+Park features here so we do not keep building extras before the current slice is submitted.
 
-**Rule:** the next real work is backend as the source of truth. New product ideas go in the list below, not into the app, until that is done.
+**Shipped first pass (final project):** zero quantity marks `used_up` and hides the lot; each add is its own row with optional expiry; **I made this** deducts FIFO (soonest expiry first). Secrets live in `.env` / `EXPO_PUBLIC_API_URL`.
 
 ## Do next (foundation)
 
@@ -22,8 +22,8 @@ Park features here so we do not keep building Expo-only extras before the app is
 - **Better name matching** — `egg` vs `Eggs` vs `dozen eggs`.
 - **Login in Expo** — so pantry/recipes are per account, not a shared demo API.
 - **Barcode / receipt intake** — product notes in `FRESHTRACK.md`; not for this homework slice.
-- **Restock as separate lots (use oldest first)** — Buying a second jug of milk while the first is still open should not smash both into one quantity. Each package needs its own row (or lot) with its own expiry. Cooking and − should deduct from the oldest/soonest-expiring lot first (FIFO). How we show that in the UI is still TBD (two Milk rows vs one name with a lot list).
-- **Zero inventory** — When quantity hits 0 (cook, −, or use-up), the pantry row should not sit around as “still have it.” Mark it `used_up`, hide it from the active list, or remove it. The Django `status` field already has `used_up`; the app does not do anything at zero today.
+- **Restock as separate lots (use oldest first)** — First pass in the app: each add is a new row with optional expiry; **I made this** uses soonest expiry first. Per-item − still edits the row you opened.
+- **Zero inventory** — First pass: quantity ≤ 0 sets `used_up` on save; API and UI hide used_up / thrown_out lots.
 
 ## Inbox
 
