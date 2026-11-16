@@ -1,48 +1,23 @@
 # FreshTrack
 
-Kitchen inventory, expiry tracking, and saved recipes. This repo has a Django REST API (`backend/`) and an Expo app (`freshtrack/`).
+Kitchen inventory, expiry tracking, and saved recipes. The Expo app talks to **Supabase** (Postgres + API). `backend/` is the older Django/Render API and is not what the app uses anymore.
 
 ## Layout
 
-- `backend/` - Django project (`config`) and app (`api`)
-- `freshtrack/` - Expo app (Create Expo Stack, next to Django, not inside it)
+- `freshtrack/` - Expo app (Create Expo Stack)
+- `supabase/schema.sql` - tables, triggers, seed data (run once in the Supabase SQL editor)
+- `backend/` - leftover Django project (not used by Expo)
 - `myvenv/` - local Python virtual environment (not committed)
-- `requirements.txt` - pinned Python packages
-- `render.yaml` - Render Blueprint (web service + Postgres)
 - `FRESHTRACK.md` - product notes
-- `IDEAS.md` - later features; do not build these until the app talks to Django properly
+- `IDEAS.md` - later features
 
-## Local setup (Django)
+## Supabase (data + API)
 
-```powershell
-python -m venv myvenv
-.\myvenv\Scripts\Activate.ps1
-pip install -r requirements.txt
-cd backend
-python manage.py migrate
-python manage.py seed_demo
-python manage.py runserver 0.0.0.0:8000
-```
+1. Open https://supabase.com/dashboard/project/icmozzozwkmkcfanpmkf/sql/new
+2. Paste `supabase/schema.sql` and click **Run**.
+3. That creates `pantry`, `recipes`, and `recipe_ingredients`, plus a sample Milk lot and Scrambled eggs recipe.
 
-Copy `.env.example` to `.env` in the repo root and set `SECRET_KEY`. Render already injects `SECRET_KEY` and `DATABASE_URL`. Do not commit `.env`.
-
-If PowerShell blocks `Activate.ps1`, run `.\myvenv\Scripts\activate.bat` instead.
-
-Visit http://127.0.0.1:8000/ for the home page and http://127.0.0.1:8000/admin/ for Django admin.
-
-## API
-
-Django REST Framework endpoints:
-
-- http://127.0.0.1:8000/api/pantry/
-- http://127.0.0.1:8000/api/recipes/
-- http://127.0.0.1:8000/api/lifespans/
-- http://127.0.0.1:8000/api/users/
-- http://127.0.0.1:8000/api/health/
-
-On Render, use the same paths on https://freshtrack-4k21.onrender.com/ (for example `/api/pantry/`).
-
-`python manage.py seed_demo` creates the demo admin/test users plus a sample Milk pantry item and Scrambled eggs recipe.
+Expo uses the project URL and publishable (anon) key. Copy `freshtrack/.env.example` to `freshtrack/.env` if you need to override them. Do not put the `service_role` key in the app.
 
 ## Frontend (Expo)
 
@@ -65,34 +40,17 @@ The app has bottom tabs plus detail screens:
 - **Item details** — quantity, bought-on date, throw out vs remove, expiry
 - **Recipe details** — Have/Need, **I made this**, undo last cook
 
-`PantryList` / `PantryRow`, `RecipeList` / `RecipeRow`, and `RecipeForm` reuse the same building blocks. Redux thunks GET/POST/PUT/PATCH/DELETE `/api/pantry/` and `/api/recipes/`. PATCH is for partial quantity/status updates; PUT replaces a recipe including its ingredient lines. Empty lots and thrown-out rows drop off the active list. Cooking uses FIFO and converts units in the same family (cup/gallon, oz/lb, egg/count). Copy `freshtrack/.env.example` to `freshtrack/.env` for `EXPO_PUBLIC_API_URL`.
-
-## Deploy on Render
-
-1. Push this repo to GitHub.
-2. Open https://dashboard.render.com/blueprint/new?repo=https://github.com/amber-gunther/data5570_mycode
-3. Apply the Blueprint. Render will create the web service and Postgres database.
-
-Local development still uses SQLite. Render uses Postgres via `DATABASE_URL`.
+`PantryList` / `PantryRow`, `RecipeList` / `RecipeRow`, and `RecipeForm` reuse the same building blocks. Redux thunks read and write Supabase tables (`pantry`, `recipes`, `recipe_ingredients`). Empty lots and thrown-out rows drop off the active list. Cooking uses FIFO and converts units in the same family (cup/gallon, oz/lb, egg/count).
 
 The Expo app can run locally (`npm run web`) or on Expo Hosting:
 
 https://freshtrack--0hsm2k6nc2.expo.app
 
-That preview talks to the Render API. After code changes, export and deploy again from `freshtrack`:
+That preview should be re-exported after this cutover so it talks to Supabase. After code changes, export and deploy again from `freshtrack`:
 
 ```powershell
 npx.cmd expo export --platform web
 npx.cmd eas-cli@latest deploy
 ```
 
-## Accounts
-
-Admin site: https://freshtrack-4k21.onrender.com/admin/
-
-| Role | Username | Password |
-| --- | --- | --- |
-| Admin | amber-gunther | RenderRocks! |
-| Test user | test_user | RenderRocks! |
-
-These credentials are for class/demo use. Anyone with access to this GitHub repo can see them.
+The leftover Django admin (not used by Expo) is still at https://freshtrack-4k21.onrender.com/admin/ if you need the old data.

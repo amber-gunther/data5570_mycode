@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { API_URL } from '@/constants/api';
+import { supabase, throwIfError } from '@/lib/supabase';
 
 export type PantryItem = {
   id: number;
@@ -66,15 +66,9 @@ const initialState: PantryState = {
 };
 
 export const fetchPantry = createAsyncThunk('pantry/fetch', async () => {
-  const response = await fetch(`${API_URL}/pantry/`);
-  if (!response.ok) {
-    throw new Error('Could not load pantry');
-  }
-  const payload = await response.json();
-  if (!Array.isArray(payload)) {
-    throw new Error('Could not load pantry');
-  }
-  return parsePantryItems(payload);
+  const { data, error } = await supabase.from('pantry').select('*');
+  throwIfError(error);
+  return parsePantryItems(data ?? []);
 });
 
 export const createPantryItem = createAsyncThunk(
@@ -87,60 +81,54 @@ export const createPantryItem = createAsyncThunk(
     expiry_date?: string | null;
     bought_on?: string | null;
   }) => {
-    const response = await fetch(`${API_URL}/pantry/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const { data, error } = await supabase
+      .from('pantry')
+      .insert({
         name: payload.name,
         quantity: payload.quantity,
         unit: payload.unit,
         storage_zone: payload.storage_zone,
         expiry_date: payload.expiry_date || null,
         bought_on: payload.bought_on || null,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error('Could not create pantry item');
-    }
-    return parsePantryItem(await response.json());
+      })
+      .select()
+      .single();
+    throwIfError(error);
+    return parsePantryItem(data);
   },
 );
 
 export const patchPantryQuantity = createAsyncThunk(
   'pantry/patchQuantity',
   async ({ id, quantity }: { id: number; quantity: string }) => {
-    const response = await fetch(`${API_URL}/pantry/${id}/`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quantity }),
-    });
-    if (!response.ok) {
-      throw new Error('Could not update quantity');
-    }
-    return parsePantryItem(await response.json());
+    const { data, error } = await supabase
+      .from('pantry')
+      .update({ quantity })
+      .eq('id', id)
+      .select()
+      .single();
+    throwIfError(error);
+    return parsePantryItem(data);
   },
 );
 
 export const patchPantryStatus = createAsyncThunk(
   'pantry/patchStatus',
   async ({ id, status }: { id: number; status: string }) => {
-    const response = await fetch(`${API_URL}/pantry/${id}/`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    if (!response.ok) {
-      throw new Error('Could not update status');
-    }
-    return parsePantryItem(await response.json());
+    const { data, error } = await supabase
+      .from('pantry')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+    throwIfError(error);
+    return parsePantryItem(data);
   },
 );
 
 export const deletePantryItem = createAsyncThunk('pantry/delete', async (id: number) => {
-  const response = await fetch(`${API_URL}/pantry/${id}/`, { method: 'DELETE' });
-  if (!response.ok) {
-    throw new Error('Could not delete pantry item');
-  }
+  const { error } = await supabase.from('pantry').delete().eq('id', id);
+  throwIfError(error);
   return id;
 });
 
@@ -173,15 +161,14 @@ export const cookRecipeOnServer = createAsyncThunk(
       });
       const have = Number(current.quantity);
       const next = Math.max(0, Math.round((have - amount) * 100) / 100);
-      const response = await fetch(`${API_URL}/pantry/${pantryId}/`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: String(next) }),
-      });
-      if (!response.ok) {
-        throw new Error('Could not update pantry after cooking');
-      }
-      updated.push(parsePantryItem(await response.json()));
+      const { data, error } = await supabase
+        .from('pantry')
+        .update({ quantity: String(next) })
+        .eq('id', pantryId)
+        .select()
+        .single();
+      throwIfError(error);
+      updated.push(parsePantryItem(data));
     }
 
     return { updated, restores };
@@ -195,18 +182,17 @@ export const undoLastCookOnServer = createAsyncThunk(
     const restores = state.pantry.lastCook ?? [];
     const updated: PantryItem[] = [];
     for (const snapshot of restores) {
-      const response = await fetch(`${API_URL}/pantry/${snapshot.id}/`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error } = await supabase
+        .from('pantry')
+        .update({
           quantity: snapshot.quantity,
           status: snapshot.status,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error('Could not undo cook');
-      }
-      updated.push(parsePantryItem(await response.json()));
+        })
+        .eq('id', snapshot.id)
+        .select()
+        .single();
+      throwIfError(error);
+      updated.push(parsePantryItem(data));
     }
     return updated;
   },

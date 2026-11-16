@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { API_URL } from '@/constants/api';
+import { supabase, throwIfError } from '@/lib/supabase';
 
 export type RecipeIngredient = {
   id: number;
@@ -89,50 +89,79 @@ const initialState: RecipesState = {
   nextLocalId: 500,
 };
 
+const RECIPE_SELECT = 'id, title, notes, servings, ingredients:recipe_ingredients(id, name, quantity, unit)';
+
+async function loadRecipe(id: number) {
+  const { data, error } = await supabase.from('recipes').select(RECIPE_SELECT).eq('id', id).single();
+  throwIfError(error);
+  return parseRecipe(data);
+}
+
 export const fetchRecipes = createAsyncThunk('recipes/fetch', async () => {
-  const response = await fetch(`${API_URL}/recipes/`);
-  if (!response.ok) {
-    throw new Error('Could not load recipes');
-  }
-  const payload = await response.json();
-  if (!Array.isArray(payload)) {
-    throw new Error('Could not load recipes');
-  }
-  return parseRecipes(payload);
+  const { data, error } = await supabase.from('recipes').select(RECIPE_SELECT);
+  throwIfError(error);
+  return parseRecipes(data ?? []);
 });
 
 export const createRecipe = createAsyncThunk('recipes/create', async (draft: RecipeDraft) => {
-  const response = await fetch(`${API_URL}/recipes/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft),
-  });
-  if (!response.ok) {
-    throw new Error('Could not create recipe');
+  const { data: created, error: createError } = await supabase
+    .from('recipes')
+    .insert({
+      title: draft.title,
+      notes: draft.notes,
+      servings: draft.servings,
+    })
+    .select('id')
+    .single();
+  throwIfError(createError);
+  const lines = draft.ingredients
+    .filter((line) => line.name.trim())
+    .map((line) => ({
+      recipe_id: created.id,
+      name: line.name.trim(),
+      quantity: line.quantity || '1',
+      unit: line.unit || 'count',
+    }));
+  if (lines.length > 0) {
+    const { error: lineError } = await supabase.from('recipe_ingredients').insert(lines);
+    throwIfError(lineError);
   }
-  return parseRecipe(await response.json());
+  return loadRecipe(created.id);
 });
 
 export const updateRecipe = createAsyncThunk(
   'recipes/update',
   async ({ id, draft }: { id: number; draft: RecipeDraft }) => {
-    const response = await fetch(`${API_URL}/recipes/${id}/`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(draft),
-    });
-    if (!response.ok) {
-      throw new Error('Could not update recipe');
+    const { error: updateError } = await supabase
+      .from('recipes')
+      .update({
+        title: draft.title,
+        notes: draft.notes,
+        servings: draft.servings,
+      })
+      .eq('id', id);
+    throwIfError(updateError);
+    const { error: deleteError } = await supabase.from('recipe_ingredients').delete().eq('recipe_id', id);
+    throwIfError(deleteError);
+    const lines = draft.ingredients
+      .filter((line) => line.name.trim())
+      .map((line) => ({
+        recipe_id: id,
+        name: line.name.trim(),
+        quantity: line.quantity || '1',
+        unit: line.unit || 'count',
+      }));
+    if (lines.length > 0) {
+      const { error: lineError } = await supabase.from('recipe_ingredients').insert(lines);
+      throwIfError(lineError);
     }
-    return parseRecipe(await response.json());
+    return loadRecipe(id);
   },
 );
 
 export const deleteRecipe = createAsyncThunk('recipes/delete', async (id: number) => {
-  const response = await fetch(`${API_URL}/recipes/${id}/`, { method: 'DELETE' });
-  if (!response.ok) {
-    throw new Error('Could not delete recipe');
-  }
+  const { error } = await supabase.from('recipes').delete().eq('id', id);
+  throwIfError(error);
   return id;
 });
 

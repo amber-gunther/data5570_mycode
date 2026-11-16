@@ -16,6 +16,7 @@
     "@react-navigation/bottom-tabs": "^7.21.0",
     "@react-navigation/native": "^7.1.6",
     "@reduxjs/toolkit": "^2.13.0",
+    "@supabase/supabase-js": "^2.119.0",
     "expo": "~56.0.4",
     "expo-constants": "~56.0.15",
     "expo-font": "~56.0.5",
