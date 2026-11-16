@@ -6,17 +6,22 @@ import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { PantryList } from '@/components/PantryList';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { localDateISO, sortByExpiry, useSoonItems } from '@/lib/expiry';
 import { addItem, createPantryItem, isOnHand, PantryItem } from '@/store/pantrySlice';
 
 export default function Home() {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const items = useAppSelector((state) => state.pantry.items.filter(isOnHand));
+  const items = useAppSelector((state) =>
+    sortByExpiry(state.pantry.items.filter(isOnHand)),
+  );
+  const soon = useSoonItems(items);
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('count');
   const [expiry, setExpiry] = useState('');
+  const [boughtOn, setBoughtOn] = useState(localDateISO());
 
   function handleAdd() {
     const trimmed = name.trim();
@@ -30,6 +35,7 @@ export default function Home() {
       unit: unit.trim() || 'count',
       storage_zone: 'pantry',
       expiry_date: expiry.trim() || null,
+      bought_on: boughtOn.trim() || localDateISO(),
     };
     dispatch(createPantryItem(payload)).unwrap().catch(() => {
       dispatch(addItem(payload));
@@ -38,6 +44,7 @@ export default function Home() {
     setQuantity('');
     setUnit('count');
     setExpiry('');
+    setBoughtOn(localDateISO());
   }
 
   function openDetails(item: PantryItem) {
@@ -48,6 +55,11 @@ export default function Home() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Container>
         <Text style={styles.heading}>What's in the kitchen</Text>
+        {soon.length > 0 ? (
+          <Text style={styles.soonBanner}>
+            Use soon ({soon.length}): {soon.map((item) => item.name).join(', ')}
+          </Text>
+        ) : null}
         <PantryList items={items} onSelect={openDetails} />
 
         <Text style={styles.subheading}>Add a lot</Text>
@@ -78,6 +90,12 @@ export default function Home() {
         </View>
         <TextInput
           style={styles.input}
+          placeholder="Bought on YYYY-MM-DD"
+          value={boughtOn}
+          onChangeText={setBoughtOn}
+        />
+        <TextInput
+          style={styles.input}
           placeholder="Expiry YYYY-MM-DD (optional)"
           value={expiry}
           onChangeText={setExpiry}
@@ -100,6 +118,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 16,
+  },
+  soonBanner: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 10,
+    color: '#92400e',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   subheading: {
     fontSize: 16,

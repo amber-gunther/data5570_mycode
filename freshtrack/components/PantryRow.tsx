@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { expiryBucket } from '@/lib/expiry';
 import type { PantryItem } from '@/store/pantrySlice';
 
 type PantryRowProps = {
@@ -8,13 +9,19 @@ type PantryRowProps = {
 };
 
 export function PantryRow({ item, onPress }: PantryRowProps) {
+  const bucket = expiryBucket(item);
+  const urgency =
+    bucket === 'past' ? 'Expired' : bucket === 'critical' ? 'Use in 48h' : bucket === 'soon' ? 'Use this week' : '';
+
   return (
     <Pressable onPress={() => onPress(item)} style={styles.row}>
       <View style={styles.copy}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.meta}>
           {item.quantity} {item.unit} · {item.storage_zone}
+          {item.bought_on ? ` · bought ${item.bought_on}` : ''}
           {item.expiry_date ? ` · use by ${item.expiry_date}` : ''}
+          {urgency ? ` · ${urgency}` : ''}
         </Text>
       </View>
       <Text style={styles.chevron}>›</Text>

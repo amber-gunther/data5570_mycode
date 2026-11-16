@@ -20,7 +20,16 @@ class IngredientLifespanAdmin(admin.ModelAdmin):
 
 @admin.register(Pantry)
 class PantryAdmin(admin.ModelAdmin):
-    list_display = ("name", "user", "quantity", "unit", "storage_zone", "expiry_date", "status")
+    list_display = (
+        "name",
+        "user",
+        "quantity",
+        "unit",
+        "storage_zone",
+        "bought_on",
+        "expiry_date",
+        "status",
+    )
     list_filter = ("storage_zone", "status", "package_state")
     search_fields = ("name", "brand", "barcode")
 

@@ -7,7 +7,9 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   adjustQuantity,
   deletePantryItem,
+  markThrownOut,
   patchPantryQuantity,
+  patchPantryStatus,
   removeItem,
 } from '@/store/pantrySlice';
 
@@ -56,6 +58,19 @@ export default function Details() {
       });
   }
 
+  function handleThrowOut() {
+    if (!item) {
+      return;
+    }
+    dispatch(patchPantryStatus({ id: item.id, status: 'thrown_out' }))
+      .unwrap()
+      .then(() => router.back())
+      .catch(() => {
+        dispatch(markThrownOut(item.id));
+        router.back();
+      });
+  }
+
   function handleRemove() {
     if (!item) {
       return;
@@ -100,8 +115,11 @@ export default function Details() {
             <Text style={styles.value}>{item.storage_zone}</Text>
             <Text style={styles.label}>Status</Text>
             <Text style={styles.value}>{item.status}</Text>
+            <Text style={styles.label}>Bought on</Text>
+            <Text style={styles.value}>{item.bought_on ?? 'Not set'}</Text>
             <Text style={styles.label}>Expiry</Text>
             <Text style={styles.value}>{item.expiry_date ?? 'Not set'}</Text>
+            <Button title="Throw out" onPress={handleThrowOut} />
             <Button title="Remove from pantry" onPress={handleRemove} />
           </>
         ) : (

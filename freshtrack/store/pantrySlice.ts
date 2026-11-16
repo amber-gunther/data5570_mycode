@@ -9,38 +9,9 @@ export type PantryItem = {
   unit: string;
   storage_zone: string;
   expiry_date: string | null;
+  bought_on: string | null;
   status: string;
 };
-
-export const demoPantry: PantryItem[] = [
-  {
-    id: 1,
-    name: 'Milk',
-    quantity: '4.00',
-    unit: 'cup',
-    storage_zone: 'fridge',
-    expiry_date: '2026-10-15',
-    status: 'active',
-  },
-  {
-    id: 2,
-    name: 'Eggs',
-    quantity: '12.00',
-    unit: 'count',
-    storage_zone: 'fridge',
-    expiry_date: '2026-10-20',
-    status: 'active',
-  },
-  {
-    id: 3,
-    name: 'Frozen peas',
-    quantity: '16.00',
-    unit: 'oz',
-    storage_zone: 'freezer',
-    expiry_date: null,
-    status: 'frozen',
-  },
-];
 
 export function parsePantryItem(row: unknown): PantryItem {
   const item = row as Record<string, unknown>;
@@ -51,6 +22,7 @@ export function parsePantryItem(row: unknown): PantryItem {
     unit: String(item.unit ?? ''),
     storage_zone: String(item.storage_zone ?? 'pantry'),
     expiry_date: item.expiry_date ? String(item.expiry_date) : null,
+    bought_on: item.bought_on ? String(item.bought_on) : null,
     status: String(item.status ?? 'active'),
   };
 }
@@ -65,15 +37,21 @@ export function isOnHand(item: PantryItem) {
 
 export function parsePantryItems(payload: unknown): PantryItem[] {
   if (!Array.isArray(payload)) {
-    return demoPantry;
+    return [];
   }
   return payload.map(parsePantryItem).filter(isOnHand);
 }
+
+export type LotSnapshot = Pick<
+  PantryItem,
+  'id' | 'name' | 'quantity' | 'unit' | 'storage_zone' | 'expiry_date' | 'bought_on' | 'status'
+>;
 
 type PantryState = {
   items: PantryItem[];
   status: 'idle' | 'ready';
   nextLocalId: number;
+  lastCook: LotSnapshot[] | null;
 };
 
 function dropEmptyLots(state: PantryState) {
@@ -84,6 +62,7 @@ const initialState: PantryState = {
   items: [],
   status: 'idle',
   nextLocalId: 100,
+  lastCook: null,
 };
 
 export const fetchPantry = createAsyncThunk('pantry/fetch', async () => {
@@ -91,7 +70,11 @@ export const fetchPantry = createAsyncThunk('pantry/fetch', async () => {
   if (!response.ok) {
     throw new Error('Could not load pantry');
   }
-  return parsePantryItems(await response.json());
+  const payload = await response.json();
+  if (!Array.isArray(payload)) {
+    throw new Error('Could not load pantry');
+  }
+  return parsePantryItems(payload);
 });
 
 export const createPantryItem = createAsyncThunk(
@@ -102,6 +85,7 @@ export const createPantryItem = createAsyncThunk(
     unit: string;
     storage_zone: string;
     expiry_date?: string | null;
+    bought_on?: string | null;
   }) => {
     const response = await fetch(`${API_URL}/pantry/`, {
       method: 'POST',
@@ -112,6 +96,7 @@ export const createPantryItem = createAsyncThunk(
         unit: payload.unit,
         storage_zone: payload.storage_zone,
         expiry_date: payload.expiry_date || null,
+        bought_on: payload.bought_on || null,
       }),
     });
     if (!response.ok) {
@@ -136,6 +121,21 @@ export const patchPantryQuantity = createAsyncThunk(
   },
 );
 
+export const patchPantryStatus = createAsyncThunk(
+  'pantry/patchStatus',
+  async ({ id, status }: { id: number; status: string }) => {
+    const response = await fetch(`${API_URL}/pantry/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      throw new Error('Could not update status');
+    }
+    return parsePantryItem(await response.json());
+  },
+);
+
 export const deletePantryItem = createAsyncThunk('pantry/delete', async (id: number) => {
   const response = await fetch(`${API_URL}/pantry/${id}/`, { method: 'DELETE' });
   if (!response.ok) {
@@ -153,6 +153,7 @@ export const cookRecipeOnServer = createAsyncThunk(
       totals[deduction.id] = (totals[deduction.id] ?? 0) + deduction.amount;
     }
 
+    const restores: LotSnapshot[] = [];
     const updated: PantryItem[] = [];
     for (const [id, amount] of Object.entries(totals)) {
       const pantryId = Number(id);
@@ -160,6 +161,16 @@ export const cookRecipeOnServer = createAsyncThunk(
       if (!current) {
         continue;
       }
+      restores.push({
+        id: current.id,
+        name: current.name,
+        quantity: current.quantity,
+        unit: current.unit,
+        storage_zone: current.storage_zone,
+        expiry_date: current.expiry_date,
+        bought_on: current.bought_on,
+        status: current.status,
+      });
       const have = Number(current.quantity);
       const next = Math.max(0, Math.round((have - amount) * 100) / 100);
       const response = await fetch(`${API_URL}/pantry/${pantryId}/`, {
@@ -173,6 +184,30 @@ export const cookRecipeOnServer = createAsyncThunk(
       updated.push(parsePantryItem(await response.json()));
     }
 
+    return { updated, restores };
+  },
+);
+
+export const undoLastCookOnServer = createAsyncThunk(
+  'pantry/undoCook',
+  async (_: void, { getState }) => {
+    const state = getState() as { pantry: PantryState };
+    const restores = state.pantry.lastCook ?? [];
+    const updated: PantryItem[] = [];
+    for (const snapshot of restores) {
+      const response = await fetch(`${API_URL}/pantry/${snapshot.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quantity: snapshot.quantity,
+          status: snapshot.status,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('Could not undo cook');
+      }
+      updated.push(parsePantryItem(await response.json()));
+    }
     return updated;
   },
 );
@@ -193,6 +228,7 @@ const pantrySlice = createSlice({
         id: state.nextLocalId,
         status: 'active',
         expiry_date: action.payload.expiry_date ?? null,
+        bought_on: action.payload.bought_on ?? null,
         ...action.payload,
       });
       state.nextLocalId += 1;
@@ -217,11 +253,22 @@ const pantrySlice = createSlice({
       dropEmptyLots(state);
     },
     useIngredients(state, action: PayloadAction<{ id: number; amount: number }[]>) {
+      const restores: LotSnapshot[] = [];
       for (const deduction of action.payload) {
         const item = state.items.find((row) => row.id === deduction.id);
         if (!item) {
           continue;
         }
+        restores.push({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          storage_zone: item.storage_zone,
+          expiry_date: item.expiry_date,
+          bought_on: item.bought_on,
+          status: item.status,
+        });
         const current = Number(item.quantity);
         if (!Number.isFinite(current)) {
           continue;
@@ -232,7 +279,29 @@ const pantrySlice = createSlice({
           item.status = 'used_up';
         }
       }
+      if (restores.length > 0) {
+        state.lastCook = restores;
+      }
       dropEmptyLots(state);
+    },
+    markThrownOut(state, action: PayloadAction<number>) {
+      const item = state.items.find((row) => row.id === action.payload);
+      if (item) {
+        item.status = 'thrown_out';
+      }
+      dropEmptyLots(state);
+    },
+    restoreLots(state, action: PayloadAction<LotSnapshot[]>) {
+      for (const snapshot of action.payload) {
+        const item = state.items.find((row) => row.id === snapshot.id);
+        if (item) {
+          item.quantity = snapshot.quantity;
+          item.status = snapshot.status;
+        } else {
+          state.items.unshift({ ...snapshot });
+        }
+      }
+      state.lastCook = null;
     },
   },
   extraReducers: (builder) => {
@@ -243,7 +312,7 @@ const pantrySlice = createSlice({
       })
       .addCase(fetchPantry.rejected, (state) => {
         if (state.status === 'idle') {
-          state.items = demoPantry;
+          state.items = [];
           state.status = 'ready';
         }
       })
@@ -259,21 +328,48 @@ const pantrySlice = createSlice({
         }
         dropEmptyLots(state);
       })
+      .addCase(patchPantryStatus.fulfilled, (state, action) => {
+        const index = state.items.findIndex((row) => row.id === action.payload.id);
+        if (index >= 0) {
+          state.items[index] = action.payload;
+        }
+        dropEmptyLots(state);
+      })
       .addCase(deletePantryItem.fulfilled, (state, action) => {
         state.items = state.items.filter((row) => row.id !== action.payload);
       })
       .addCase(cookRecipeOnServer.fulfilled, (state, action) => {
-        for (const updated of action.payload) {
+        for (const updated of action.payload.updated) {
           const index = state.items.findIndex((row) => row.id === updated.id);
           if (index >= 0) {
             state.items[index] = updated;
           }
         }
+        state.lastCook = action.payload.restores;
+        dropEmptyLots(state);
+      })
+      .addCase(undoLastCookOnServer.fulfilled, (state, action) => {
+        for (const updated of action.payload) {
+          const index = state.items.findIndex((row) => row.id === updated.id);
+          if (index >= 0) {
+            state.items[index] = updated;
+          } else {
+            state.items.unshift(updated);
+          }
+        }
+        state.lastCook = null;
         dropEmptyLots(state);
       });
   },
 });
 
-export const { setItems, addItem, removeItem, adjustQuantity, useIngredients } =
-  pantrySlice.actions;
+export const {
+  setItems,
+  addItem,
+  removeItem,
+  adjustQuantity,
+  useIngredients,
+  markThrownOut,
+  restoreLots,
+} = pantrySlice.actions;
 export default pantrySlice.reducer;

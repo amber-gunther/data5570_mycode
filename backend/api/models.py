@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 class StorageZone(models.TextChoices):
@@ -89,6 +90,7 @@ class Pantry(models.Model):
         default=PackageState.UNOPENED,
     )
     expiry_date = models.DateField(null=True, blank=True)
+    bought_on = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=PantryStatus.choices,
@@ -112,7 +114,11 @@ class Pantry(models.Model):
         ordering = ["name"]
 
     def save(self, *args, **kwargs):
-        if self.quantity is not None and self.quantity <= 0:
+        if not self.bought_on:
+            self.bought_on = timezone.localdate()
+        if self.status == PantryStatus.THROWN_OUT:
+            pass
+        elif self.quantity is not None and self.quantity <= 0:
             self.status = PantryStatus.USED_UP
         elif self.status == PantryStatus.USED_UP and self.quantity > 0:
             self.status = PantryStatus.ACTIVE

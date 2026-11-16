@@ -16,6 +16,8 @@ export default function Layout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="details" />
         <Stack.Screen name="recipe/[id]" />
+        <Stack.Screen name="recipe/new" />
+        <Stack.Screen name="recipe/edit" />
       </Stack>
     </Provider>
   );

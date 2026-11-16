@@ -1,23 +1,53 @@
+import { convertQuantity, unitsMatch } from '@/lib/units';
 import type { PantryItem } from '@/store/pantrySlice';
 import { isOnHand } from '@/store/pantrySlice';
 import type { Recipe, RecipeIngredient } from '@/store/recipesSlice';
+
+const STOP_WORDS = new Set(['a', 'an', 'the', 'of', 'fresh', 'dozen', 'large', 'small']);
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-export function namesMatch(a: string, b: string) {
-  const left = normalize(a);
-  const right = normalize(b);
-  if (!left || !right) {
-    return false;
+function singularize(word: string) {
+  if (word.endsWith('ies') && word.length > 4) {
+    return `${word.slice(0, -3)}y`;
   }
-  return left === right || left.includes(right) || right.includes(left);
+  if (word.endsWith('oes') && word.length > 4) {
+    return word.slice(0, -2);
+  }
+  if ((word.endsWith('ses') || word.endsWith('xes') || word.endsWith('zes')) && word.length > 4) {
+    return word.slice(0, -2);
+  }
+  if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) {
+    return word.slice(0, -1);
+  }
+  return word;
 }
 
-export function unitsMatch(a: string, b: string) {
-  return normalize(a) === normalize(b);
+function tokens(value: string) {
+  return normalize(value)
+    .split(' ')
+    .filter((part) => part && !STOP_WORDS.has(part))
+    .map(singularize);
 }
+
+export function namesMatch(a: string, b: string) {
+  const left = tokens(a);
+  const right = tokens(b);
+  if (left.length === 0 || right.length === 0) {
+    return false;
+  }
+  if (left.join(' ') === right.join(' ')) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((token) => right.includes(token));
+}
+
+export { unitsMatch };
 
 export function parseQty(value: string) {
   const amount = Number(value);
@@ -117,11 +147,16 @@ export function planCook(recipe: Recipe, items: PantryItem[]): CookPlan {
       if (leftover <= 0) {
         continue;
       }
-      available += leftover;
-      const take = Math.min(leftover, remainingNeed);
-      if (take > 0) {
-        lineDeductions.push({ id: lot.id, amount: take });
-        remainingNeed = Math.round((remainingNeed - take) * 100) / 100;
+      const inRecipeUnits = convertQuantity(leftover, lot.unit, ingredient.unit);
+      if (inRecipeUnits === null) {
+        continue;
+      }
+      available += inRecipeUnits;
+      const takeRecipe = Math.min(inRecipeUnits, remainingNeed);
+      const takeLot = convertQuantity(takeRecipe, ingredient.unit, lot.unit);
+      if (takeLot !== null && takeLot > 0) {
+        lineDeductions.push({ id: lot.id, amount: takeLot });
+        remainingNeed = Math.round((remainingNeed - takeRecipe) * 100) / 100;
       }
       if (remainingNeed <= 1e-9) {
         break;

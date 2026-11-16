@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { RecipeList } from '@/components/RecipeList';
 import { useAppSelector } from '@/store/hooks';
@@ -22,6 +23,7 @@ export default function Recipes() {
           Open a recipe to see which ingredients you already have in the pantry.
         </Text>
         <RecipeList recipes={recipes} onSelect={openRecipe} />
+        <Button title="Add a recipe" onPress={() => router.push('/recipe/new')} />
       </Container>
     </ScrollView>
   );

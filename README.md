@@ -59,12 +59,13 @@ That starts Metro and opens the app in the browser (http://localhost:8081). Pres
 
 The app has bottom tabs plus detail screens:
 
-- **Pantry** — list pantry items and add a new one
-- **Recipes** — saved recipes; open one to see Have/Need against the pantry
-- **Item details** — quantity, storage, status, expiry, and remove
-- **Recipe details** — notes and each ingredient compared to what you have
+- **Pantry** — lots sorted by expiry; use-soon banner; add a lot
+- **Recipes** — saved recipes; add/edit/delete in the app
+- **Shop** — pick recipes; buy list is only what you still need
+- **Item details** — quantity, bought-on date, throw out vs remove, expiry
+- **Recipe details** — Have/Need, **I made this**, undo last cook
 
-`PantryList` / `PantryRow` and `RecipeList` / `RecipeRow` are parent/child lists. Form fields use `useState`. Redux thunks GET `/api/pantry/` and `/api/recipes/`, POST a new pantry lot, PATCH quantities, and DELETE a row. Quantity updates use PATCH (partial), which is the right REST verb; POST creates a resource. When a lot hits 0 it is marked `used_up` and dropped from the active list. Adding the same name twice keeps two lots; **I made this** deducts from the soonest expiry first. If the live API is asleep, the app falls back to demo data. Recipes are read-only in the app. Copy `freshtrack/.env.example` to `freshtrack/.env` for `EXPO_PUBLIC_API_URL`.
+`PantryList` / `PantryRow`, `RecipeList` / `RecipeRow`, and `RecipeForm` reuse the same building blocks. Redux thunks GET/POST/PUT/PATCH/DELETE `/api/pantry/` and `/api/recipes/`. PATCH is for partial quantity/status updates; PUT replaces a recipe including its ingredient lines. Empty lots and thrown-out rows drop off the active list. Cooking uses FIFO and converts units in the same family (cup/gallon, oz/lb, egg/count). Copy `freshtrack/.env.example` to `freshtrack/.env` for `EXPO_PUBLIC_API_URL`.
 
 ## Deploy on Render
 

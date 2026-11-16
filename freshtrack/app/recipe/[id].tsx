@@ -1,18 +1,27 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Container } from '@/components/Container';
 import { planCook } from '@/lib/matchPantry';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { cookRecipeOnServer, isOnHand, useIngredients } from '@/store/pantrySlice';
+import {
+  cookRecipeOnServer,
+  isOnHand,
+  restoreLots,
+  undoLastCookOnServer,
+  useIngredients,
+} from '@/store/pantrySlice';
+import { deleteRecipe, removeRecipeLocal } from '@/store/recipesSlice';
 
 export default function RecipeDetails() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const recipeId = Number(id);
   const pantryItems = useAppSelector((state) => state.pantry.items.filter(isOnHand));
+  const lastCook = useAppSelector((state) => state.pantry.lastCook);
   const recipe = useAppSelector((state) =>
     state.recipes.items.find((row) => row.id === recipeId),
   );
@@ -25,10 +34,36 @@ export default function RecipeDetails() {
     }
     dispatch(cookRecipeOnServer(plan.deductions))
       .unwrap()
-      .then(() => setMessage('Pantry updated for this recipe.'))
+      .then(() => setMessage('Pantry updated for this recipe. Undo is available.'))
       .catch(() => {
         dispatch(useIngredients(plan.deductions));
         setMessage('Pantry updated on this device (server save failed).');
+      });
+  }
+
+  function handleUndo() {
+    if (!lastCook) {
+      return;
+    }
+    dispatch(undoLastCookOnServer())
+      .unwrap()
+      .then(() => setMessage('Cook undone.'))
+      .catch(() => {
+        dispatch(restoreLots(lastCook));
+        setMessage('Cook undone on this device.');
+      });
+  }
+
+  function handleDelete() {
+    if (!recipe) {
+      return;
+    }
+    dispatch(deleteRecipe(recipe.id))
+      .unwrap()
+      .then(() => router.back())
+      .catch(() => {
+        dispatch(removeRecipeLocal(recipe.id));
+        router.back();
       });
   }
 
@@ -78,6 +113,14 @@ export default function RecipeDetails() {
                   disabled={!plan?.ok}
                   onPress={handleMadeThis}
                 />
+                {lastCook ? <Button title="Undo last cook" onPress={handleUndo} /> : null}
+                <Button
+                  title="Edit recipe"
+                  onPress={() =>
+                    router.push({ pathname: '/recipe/edit', params: { id: String(recipe.id) } })
+                  }
+                />
+                <Button title="Delete recipe" onPress={handleDelete} />
               </View>
               {plan?.ok ? (
                 <Text style={styles.blocked}>
